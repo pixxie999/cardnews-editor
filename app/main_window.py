@@ -16,8 +16,10 @@ from PyQt6.QtGui import (
 from app.canvas.canvas_widget import CanvasScene, CanvasView
 from app.canvas.image_item import ImageItem
 from app.canvas.text_item import TextItem
+from app.canvas.frame_item import FrameItem
 from app.template.template_manager import TemplateManager
 from app.panels.property_panel import PropertyPanel
+from app.panels.collage_dialog import CollageDialog
 from app.export.exporter import export_image
 
 
@@ -184,8 +186,11 @@ class MainWindow(QMainWindow):
         act_bg_image.triggered.connect(self._set_bg_image)
         act_canvas_size = QAction("캔버스 크기 설정", self)
         act_canvas_size.triggered.connect(self._set_canvas_size)
+        act_collage = QAction("콜라주 레이아웃 추가", self)
+        act_collage.triggered.connect(self._add_collage_layout)
         for a in [act_add_text, act_del, None,
-                  act_bg_color, act_bg_image, None, act_canvas_size]:
+                  act_bg_color, act_bg_image, None,
+                  act_canvas_size, None, act_collage]:
             if a:
                 edit_menu.addAction(a)
             else:
@@ -222,6 +227,7 @@ class MainWindow(QMainWindow):
 
         tb.addAction(_act("🖼 이미지 추가", "Ctrl+O", self._add_image))
         tb.addAction(_act("🔤 텍스트 추가", "Ctrl+T", self._add_text))
+        tb.addAction(_act("▦ 콜라주 분할", None, self._add_collage_layout))
         tb.addSeparator()
         tb.addAction(_act("💾 내보내기", "Ctrl+S", self._export))
         tb.addSeparator()
@@ -259,6 +265,30 @@ class MainWindow(QMainWindow):
     def _add_text(self):
         self._scene.add_text("텍스트를 입력하세요", QPointF(100, 100))
         self._refresh_layers()
+
+    def _add_collage_layout(self):
+        w, h = self._scene.get_canvas_size()
+        dlg = CollageDialog(w, h, self)
+        if dlg.exec() != QDialog.DialogCode.Accepted:
+            return
+        s = dlg.get_settings()
+        rows, cols, gap = s["rows"], s["cols"], s["gap"]
+        bw, bc = s["border_width"], s["border_color"]
+
+        frame_w = (w - gap * (cols + 1)) / cols
+        frame_h = (h - gap * (rows + 1)) / rows
+
+        count = 0
+        for r in range(rows):
+            for c in range(cols):
+                x = gap + c * (frame_w + gap)
+                y = gap + r * (frame_h + gap)
+                self._scene.add_frame(x, y, frame_w, frame_h,
+                                      frame_id=f"frame_{count}",
+                                      border_color=bc, border_width=bw)
+                count += 1
+        self._refresh_layers()
+        self._status.showMessage(f"콜라주 프레임 {count}개 추가됨", 3000)
 
     def _change_bg_color(self):
         color = QColorDialog.getColor(self._scene._bg_color, self, "배경색 선택")
@@ -366,9 +396,11 @@ class MainWindow(QMainWindow):
         self._layer_list.clear()
         for item in self._scene.get_layer_items():
             if isinstance(item, TextItem):
-                label = f"T  {item.toPlainText()[:20]}"
+                label = f"T  {item.toPlainText()[:18]}"
             elif isinstance(item, ImageItem):
                 label = f"I  이미지 ({int(item.get_size()[0])}×{int(item.get_size()[1])})"
+            elif isinstance(item, FrameItem):
+                label = f"F  프레임 ({int(item.get_size()[0])}×{int(item.get_size()[1])})"
             else:
                 label = "항목"
             list_item = QListWidgetItem(label)

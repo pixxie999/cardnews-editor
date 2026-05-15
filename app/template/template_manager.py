@@ -37,7 +37,8 @@ class TemplateManager:
         """현재 캔버스 씬 → TemplateModel 변환"""
         from app.canvas.image_item import ImageItem
         from app.canvas.text_item import TextItem
-        from app.template.template_model import ImageSlot, TextSlot
+        from app.canvas.frame_item import FrameItem
+        from app.template.template_model import ImageSlot, TextSlot, FrameSlot
 
         w, h = scene.get_canvas_size()
         model = TemplateModel(
@@ -47,6 +48,8 @@ class TemplateManager:
             bg_color=scene._bg_color.name(),
         )
         for item in scene.get_layer_items():
+            if not hasattr(item, "to_dict"):
+                continue
             d = item.to_dict()
             if isinstance(item, ImageItem):
                 model.image_slots.append(ImageSlot(
@@ -65,13 +68,25 @@ class TemplateManager:
                     bold=d["bold"],
                     italic=d["italic"],
                     color=d["color"],
+                    stroke_width=d.get("stroke_width", 0.0),
+                    stroke_color=d.get("stroke_color", "#000000"),
+                    text_width=d.get("text_width", 400),
+                    z=d["z"],
+                ))
+            elif isinstance(item, FrameItem):
+                model.frame_slots.append(FrameSlot(
+                    frame_id=d["frame_id"] or f"frame_{len(model.frame_slots)}",
+                    x=d["x"], y=d["y"],
+                    width=d["width"], height=d["height"],
+                    border_color=d["border_color"],
+                    border_width=d["border_width"],
                     z=d["z"],
                 ))
         return model
 
     @staticmethod
     def apply_to_scene(model: TemplateModel, scene):
-        """TemplateModel → 캔버스 씬 복원 (이미지 슬롯은 빈 placeholder)"""
+        """TemplateModel → 캔버스 씬 복원"""
         from PyQt6.QtCore import QPointF
         from PyQt6.QtGui import QPixmap, QColor
 
@@ -90,7 +105,6 @@ class TemplateManager:
             item.setZValue(slot.z)
 
         for slot in sorted(model.text_slots, key=lambda s: s.z):
-            from PyQt6.QtGui import QFont
             item = scene.add_text(slot.content, QPointF(slot.x, slot.y), slot.slot_id)
             item.set_font_family(slot.font_family)
             item.set_font_size(slot.font_size)
@@ -98,13 +112,23 @@ class TemplateManager:
             item.set_italic(slot.italic)
             from PyQt6.QtGui import QColor as QC
             item.set_color(QC(slot.color))
+            item.set_stroke(slot.stroke_width, QC(slot.stroke_color))
+            if slot.text_width > 0:
+                item.setTextWidth(slot.text_width)
+            item.setZValue(slot.z)
+
+        for slot in sorted(model.frame_slots, key=lambda s: s.z):
+            item = scene.add_frame(
+                slot.x, slot.y, slot.width, slot.height,
+                slot.frame_id, slot.border_color, slot.border_width,
+            )
             item.setZValue(slot.z)
 
 
 def _make_placeholder_pixmap(w: int, h: int):
     from PyQt6.QtGui import QPixmap, QPainter, QColor, QPen, QFont
     from PyQt6.QtCore import Qt, QRectF
-    pm = QPixmap(w, h)
+    pm = QPixmap(max(w, 1), max(h, 1))
     pm.fill(QColor("#e5e7eb"))
     painter = QPainter(pm)
     pen = QPen(QColor("#9ca3af"), 2, Qt.PenStyle.DashLine)

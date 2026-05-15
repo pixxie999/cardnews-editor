@@ -10,6 +10,7 @@ from PyQt6.QtGui import (
 
 from app.canvas.image_item import ImageItem
 from app.canvas.text_item import TextItem
+from app.canvas.frame_item import FrameItem
 
 
 class CanvasScene(QGraphicsScene):
@@ -89,6 +90,15 @@ class CanvasScene(QGraphicsScene):
         item.setZValue(self._next_z())
         return item
 
+    def add_frame(self, x: float, y: float, w: float, h: float,
+                  frame_id: str = "", border_color: str = "#ffffff",
+                  border_width: float = 2.0) -> FrameItem:
+        item = FrameItem(w, h, frame_id, border_color, border_width)
+        self.addItem(item)
+        item.setPos(x, y)
+        item.setZValue(self._next_z())
+        return item
+
     def _next_z(self) -> float:
         z_values = [it.zValue() for it in self.items()
                     if not getattr(it, "_is_bg", False)]
@@ -106,8 +116,9 @@ class CanvasScene(QGraphicsScene):
 
     # ------------------------------------------------------------------
     def get_layer_items(self) -> list:
+        # parentItem() is None → 자식 아이템(ResizeHandle 등) 제외
         return [it for it in sorted(self.items(), key=lambda x: -x.zValue())
-                if not getattr(it, "_is_bg", False)]
+                if not getattr(it, "_is_bg", False) and it.parentItem() is None]
 
     def selectionChanged_handler(self):
         selected = self.selectedItems()

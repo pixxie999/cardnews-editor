@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-from typing import Any
 
 
 @dataclass
@@ -8,11 +7,14 @@ class TextSlot:
     x: float = 50
     y: float = 50
     content: str = "텍스트를 입력하세요"
-    font_family: str = "맑은 고딕"
+    font_family: str = "sans-serif"
     font_size: int = 24
     bold: bool = False
     italic: bool = False
     color: str = "#222222"
+    stroke_width: float = 0.0
+    stroke_color: str = "#000000"
+    text_width: float = 400
     z: float = 1
 
 
@@ -24,7 +26,20 @@ class ImageSlot:
     width: float = 400
     height: float = 300
     z: float = 0
-    source: str = ""  # 배치 처리 시 채워짐
+    source: str = ""
+
+
+@dataclass
+class FrameSlot:
+    frame_id: str
+    x: float = 0
+    y: float = 0
+    width: float = 400
+    height: float = 300
+    border_color: str = "#ffffff"
+    border_width: float = 2.0
+    z: float = 0
+    source: str = ""
 
 
 @dataclass
@@ -35,8 +50,8 @@ class TemplateModel:
     bg_color: str = "#ffffff"
     image_slots: list[ImageSlot] = field(default_factory=list)
     text_slots: list[TextSlot] = field(default_factory=list)
+    frame_slots: list[FrameSlot] = field(default_factory=list)
 
-    # ------------------------------------------------------------------
     def to_dict(self) -> dict:
         return {
             "name": self.name,
@@ -44,7 +59,8 @@ class TemplateModel:
             "canvas_h": self.canvas_h,
             "bg_color": self.bg_color,
             "image_slots": [vars(s) for s in self.image_slots],
-            "text_slots": [vars(s) for s in self.text_slots],
+            "text_slots":  [vars(s) for s in self.text_slots],
+            "frame_slots": [vars(s) for s in self.frame_slots],
         }
 
     @classmethod
@@ -56,7 +72,12 @@ class TemplateModel:
             bg_color=data.get("bg_color", "#ffffff"),
         )
         for s in data.get("image_slots", []):
-            m.image_slots.append(ImageSlot(**s))
+            m.image_slots.append(ImageSlot(**{k: v for k, v in s.items()
+                                              if k in ImageSlot.__dataclass_fields__}))
         for s in data.get("text_slots", []):
-            m.text_slots.append(TextSlot(**s))
+            m.text_slots.append(TextSlot(**{k: v for k, v in s.items()
+                                            if k in TextSlot.__dataclass_fields__}))
+        for s in data.get("frame_slots", []):
+            m.frame_slots.append(FrameSlot(**{k: v for k, v in s.items()
+                                              if k in FrameSlot.__dataclass_fields__}))
         return m
