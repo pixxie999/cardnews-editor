@@ -20,4 +20,25 @@
 
 ---
 
+### [NOTE] 전체 구현 완료 (1단계~7단계)
+- 구현 파일: main.py, app/ 하위 18개 파일
+- 구문 검사: python3 ast.parse 전체 통과
+- GitHub push 완료: pixxie999/cardnews-editor
+
+### [NOTE] 실행 방법 (Windows)
+```
+pip install PyQt6 Pillow pandas openpyxl
+python main.py
+```
+
+### [NOTE] .exe 빌드 방법 (Windows)
+```
+pip install pyinstaller
+build.bat 실행
+```
+
+### [WARN] Mac 환경에서는 실행 테스트 불가
+- PyQt6 GUI는 Windows 타겟이므로 Mac에서 UI 확인 불가
+- Windows PC에서 직접 실행하여 테스트 필요
+
 <!-- 이후 작업 진행하면서 아래에 계속 추가 -->
