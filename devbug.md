@@ -92,4 +92,23 @@ build.bat 실행
            `y = layout_pos.y() + line.position().y() + line.ascent()` 로 절대 좌표 계산.
 - **검증**: 3줄 텍스트 baseline_y = 25.6 / 54.6 / 83.6 px 으로 정상 분리 확인.
 
+---
+
+## 2026-05-15 (수정사항 4차)
+
+### [BUG→FIX] 외곽선이 항상 왼쪽 정렬로 고정
+- **원인**: `line.position().x()`는 정렬(가운데/오른쪽) 무관하게 항상 0 반환.
+  Qt의 QTextLine은 x 정렬 오프셋을 position()에 포함하지 않음.
+- **수정**: `block.blockFormat().alignment()`와 `line.naturalTextWidth()`로 x_offset 직접 계산.
+  - 가운데: `x_off = (content_w - nat_w) / 2`
+  - 오른쪽: `x_off = content_w - nat_w`
+  - 왼쪽: `x_off = 0`
+
+### [BUG→FIX] 효과(볼드/이탤릭/크기)가 외곽선에 미반영
+- **원인**: `self.font()`로 폰트를 가져오는 것은 맞으나, 블록별 CharFormat에서 폰트를 읽는
+  방식으로 변경하여 더 정확한 렌더링 폰트를 사용.
+- **수정**: `block.charFormat().font()`로 실제 렌더링 폰트 사용,
+  비어있을 경우 `self.font()` 폴백 처리.
+- **검증**: 기본/볼드/72pt 모두 charFormat에 폰트 정보가 올바르게 채워짐 확인.
+
 <!-- 이후 작업 진행하면서 아래에 계속 추가 -->

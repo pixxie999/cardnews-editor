@@ -117,10 +117,19 @@ class TextItem(QGraphicsTextItem):
     def _draw_stroke_outline(self, painter: QPainter):
         """
         스트로크(외곽선)만 그림. 글자 내부 채움은 super().paint()에 맡김.
-        layout.position()으로 각 블록(단락)의 Y 오프셋을 정확히 반영 → 여러 줄 정상 처리.
+
+        버그 수정:
+        - 정렬(가운데/오른쪽): line.position().x()는 정렬 무관하게 0이므로
+          blockFormat().alignment()와 naturalTextWidth()로 x_offset 직접 계산.
+        - 효과(볼드/이탤릭/크기): 블록 CharFormat에서 실제 렌더링 폰트를 읽어 적용.
         """
         doc = self.document()
-        font = self.font()
+        margin = doc.documentMargin()
+        # textWidth()가 -1이면 제한 없음 → boundingRect 너비로 대체
+        text_width = self.textWidth()
+        if text_width < 0:
+            text_width = self.boundingRect().width()
+        content_w = text_width - 2 * margin   # 실제 텍스트가 놓이는 폭
 
         pen = QPen(self._stroke_color, self._stroke_width * 2)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
@@ -131,7 +140,17 @@ class TextItem(QGraphicsTextItem):
         while block.isValid():
             layout = block.layout()
             if layout:
-                layout_pos = layout.position()   # 이 블록(단락)의 문서 내 좌표
+                layout_pos = layout.position()
+                # 블록 정렬
+                block_align = block.blockFormat().alignment()
+                # 블록의 실제 렌더링 폰트 (볼드·이탤릭·크기 반영)
+                char_fmt = block.charFormat()
+                block_font = char_fmt.font()
+                # charFormat 폰트가 비어 있으면(= 전체 폰트가 setFont로만 설정된 경우)
+                # item 레벨 폰트를 사용
+                if not block_font.family():
+                    block_font = self.font()
+
                 for i in range(layout.lineCount()):
                     line = layout.lineAt(i)
                     raw = block.text()
@@ -140,11 +159,21 @@ class TextItem(QGraphicsTextItem):
                     line_text = raw[start: start + length].rstrip('\n').rstrip('\r')
                     if not line_text.strip():
                         continue
-                    # addText의 기준점은 베이스라인 좌측
-                    x = layout_pos.x() + line.position().x()
+
+                    # 정렬에 따른 x 오프셋 계산
+                    nat_w = line.naturalTextWidth()
+                    if block_align & Qt.AlignmentFlag.AlignHCenter:
+                        x_off = (content_w - nat_w) / 2
+                    elif block_align & Qt.AlignmentFlag.AlignRight:
+                        x_off = content_w - nat_w
+                    else:
+                        x_off = 0.0
+
+                    x = layout_pos.x() + x_off
                     y = layout_pos.y() + line.position().y() + line.ascent()
+
                     path = QPainterPath()
-                    path.addText(QPointF(x, y), font, line_text)
+                    path.addText(QPointF(x, y), block_font, line_text)
                     painter.strokePath(path, pen)
             block = block.next()
         painter.restore()
