@@ -112,7 +112,7 @@ def _make_placeholder_pixmap(w: int, h: int):
     painter.drawRect(2, 2, w - 4, h - 4)
     painter.drawLine(0, 0, w, h)
     painter.drawLine(w, 0, 0, h)
-    painter.setFont(QFont("맑은 고딕", max(10, min(h // 8, 20))))
+    painter.setFont(QFont("sans-serif", max(10, min(h // 8, 20))))
     painter.setPen(QColor("#6b7280"))
     painter.drawText(QRectF(0, 0, w, h), Qt.AlignmentFlag.AlignCenter, "이미지 영역")
     painter.end()

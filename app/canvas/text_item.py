@@ -1,9 +1,23 @@
+import platform
 from PyQt6.QtWidgets import QGraphicsTextItem, QGraphicsItem, QMenu
 from PyQt6.QtCore import Qt, QRectF
 from PyQt6.QtGui import (
-    QPen, QColor, QFont, QTextCursor, QTextCharFormat,
+    QPen, QColor, QFont, QFontDatabase, QTextCursor, QTextCharFormat,
     QTextBlockFormat
 )
+
+
+def _default_korean_font() -> str:
+    available = set(QFontDatabase.families())
+    candidates = {
+        "Windows": ["맑은 고딕", "굴림"],
+        "Darwin":  ["Apple SD Gothic Neo", "Nanum Gothic", "AppleGothic"],
+        "Linux":   ["Noto Sans CJK KR", "Nanum Gothic"],
+    }
+    for name in candidates.get(platform.system(), []):
+        if name in available:
+            return name
+    return ""
 
 
 class TextItem(QGraphicsTextItem):
@@ -21,7 +35,7 @@ class TextItem(QGraphicsTextItem):
         )
         self.setTextInteractionFlags(Qt.TextInteractionFlag.NoTextInteraction)
 
-        font = QFont("맑은 고딕", 24)
+        font = QFont(_default_korean_font() or "sans-serif", 24)
         font.setBold(False)
         self.setFont(font)
         self.setDefaultTextColor(QColor("#222222"))
