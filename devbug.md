@@ -74,4 +74,22 @@ build.bat 실행
 - **원인**: FrameItem.paint에서 QPen에 없는 메서드 호출
 - **수정**: 해당 라인 제거, drawRect 좌표로 직접 처리
 
+---
+
+## 2026-05-15 (수정사항 3차)
+
+### [BUG→FIX] 스트로크 설정 시 텍스트 편집 불가
+- **원인**: `paint()`에서 stroke > 0이면 `super().paint()` 호출을 건너뜀.
+  QGraphicsTextItem의 커서·선택·편집 UI는 `super().paint()`가 담당하므로 편집 기능 소실.
+- **수정**: `super().paint()`를 항상 호출하도록 변경.
+  스트로크는 `super().paint()` 이전에 밑에 깔아서 외곽선만 보이게 처리.
+
+### [BUG→FIX] 여러 줄 텍스트에 스트로크 설정 시 1줄로 겹침
+- **원인**: `_paint_stroked()`에서 `line.position()`만 사용.
+  `line.position()`은 해당 블록(단락) 내 상대 좌표라서, 다른 단락의 Y 오프셋(`layout.position().y()`)을 무시함.
+  → 모든 줄이 y≈0에 겹쳐서 렌더링.
+- **수정**: `x = layout_pos.x() + line.position().x()`,
+           `y = layout_pos.y() + line.position().y() + line.ascent()` 로 절대 좌표 계산.
+- **검증**: 3줄 텍스트 baseline_y = 25.6 / 54.6 / 83.6 px 으로 정상 분리 확인.
+
 <!-- 이후 작업 진행하면서 아래에 계속 추가 -->

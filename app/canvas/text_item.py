@@ -3,7 +3,7 @@ from PyQt6.QtWidgets import QGraphicsItem, QMenu, QGraphicsRectItem
 from PyQt6.QtCore import Qt, QRectF, QPointF
 from PyQt6.QtGui import (
     QPen, QColor, QFont, QFontDatabase, QPainter,
-    QPainterPath, QTextCursor, QBrush
+    QPainterPath, QTextCursor
 )
 from PyQt6.QtWidgets import QGraphicsTextItem
 
@@ -99,10 +99,12 @@ class TextItem(QGraphicsTextItem):
 
     # ── 페인팅 ───────────────────────────────────────────────────────
     def paint(self, painter: QPainter, option, widget=None):
+        # 스트로크는 super().paint() 이전에 밑에 깔아서 테두리만 보이게 함.
+        # super().paint()는 항상 호출 → 커서/선택/편집 UI 정상 동작 보장.
         if self._stroke_width > 0:
-            self._paint_stroked(painter)
-        else:
-            super().paint(painter, option, widget)
+            self._draw_stroke_outline(painter)
+
+        super().paint(painter, option, widget)
 
         if self.isSelected() and not self._editing:
             pen = QPen(QColor("#f59e0b"), 1.5, Qt.PenStyle.DashLine)
@@ -112,35 +114,38 @@ class TextItem(QGraphicsTextItem):
         if self.isSelected():
             self._update_handles()
 
-    def _paint_stroked(self, painter: QPainter):
-        """텍스트 각 줄에 외곽선(stroke)을 그린 후 내부 색상으로 채움"""
+    def _draw_stroke_outline(self, painter: QPainter):
+        """
+        스트로크(외곽선)만 그림. 글자 내부 채움은 super().paint()에 맡김.
+        layout.position()으로 각 블록(단락)의 Y 오프셋을 정확히 반영 → 여러 줄 정상 처리.
+        """
         doc = self.document()
         font = self.font()
-        fill_color = self.defaultTextColor()
+
+        pen = QPen(self._stroke_color, self._stroke_width * 2)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
 
         painter.save()
         block = doc.begin()
         while block.isValid():
             layout = block.layout()
             if layout:
+                layout_pos = layout.position()   # 이 블록(단락)의 문서 내 좌표
                 for i in range(layout.lineCount()):
                     line = layout.lineAt(i)
                     raw = block.text()
                     start = line.textStart()
                     length = line.textLength()
-                    line_text = raw[start: start + length].rstrip('\n')
-                    if not line_text:
-                        block = block.next()
+                    line_text = raw[start: start + length].rstrip('\n').rstrip('\r')
+                    if not line_text.strip():
                         continue
+                    # addText의 기준점은 베이스라인 좌측
+                    x = layout_pos.x() + line.position().x()
+                    y = layout_pos.y() + line.position().y() + line.ascent()
                     path = QPainterPath()
-                    path.addText(line.position(), font, line_text)
-
-                    sw = self._stroke_width * 2
-                    pen = QPen(self._stroke_color, sw)
-                    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-                    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+                    path.addText(QPointF(x, y), font, line_text)
                     painter.strokePath(path, pen)
-                    painter.fillPath(path, QBrush(fill_color))
             block = block.next()
         painter.restore()
 
